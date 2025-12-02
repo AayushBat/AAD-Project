@@ -1,8 +1,3 @@
-"""
-Benchmark Runner for Max Flow Algorithm Analysis
-Loads generated datasets, runs all 3 algorithms, saves results to CSV files
-"""
-
 import pickle
 import csv
 import time
@@ -14,7 +9,6 @@ from push_relabel import push_relabel, push_relabel_min_cut
 
 
 def dict_to_graph(graph_dict):
-    """Convert dictionary format to Graph object."""
     n = len(graph_dict)
     g = Graph(n)
     for u in graph_dict:
@@ -24,7 +18,6 @@ def dict_to_graph(graph_dict):
 
 
 def dict_to_dinic(graph_dict):
-    """Convert dictionary format to Dinic object."""
     n = len(graph_dict)
     d = Dinic(n)
     for u in graph_dict:
@@ -34,7 +27,6 @@ def dict_to_dinic(graph_dict):
 
 
 def run_algorithm(algo_name, graph_dict, source, sink):
-    """Run a specific algorithm and return (runtime_ms, max_flow_value, min_cut_capacity, min_cut_edges, error)."""
     start_time = time.perf_counter()
     
     try:
@@ -66,9 +58,7 @@ def run_algorithm(algo_name, graph_dict, source, sink):
         return -1, -1, -1, [], str(e)
 
 
-def run_all_benchmarks():
-    """Load datasets and run all benchmarks."""
-    
+def run_all_benchmarks():    
     datasets_file = 'j_datasets.pkl'
     print(f"Loading datasets from {datasets_file}...")
     

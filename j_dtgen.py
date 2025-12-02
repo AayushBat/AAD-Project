@@ -1,8 +1,3 @@
-"""
-Dataset Generator for Max Flow Algorithm Benchmarking
-Generates graphs for 14 different plot categories (A1-A6, B1-B2, C1, D1, E1, F1-F3)
-"""
-
 import pickle
 import os
 from graph_generator import (
