@@ -10,7 +10,7 @@ import os
 from graphy import Graph
 from ford_fulkerson import ford_fulkerson
 from dinic import Dinic
-from push_relabel import push_relabel
+from push_relabel import push_relabel, push_relabel_min_cut
 
 
 def dict_to_graph(graph_dict):
@@ -34,29 +34,36 @@ def dict_to_dinic(graph_dict):
 
 
 def run_algorithm(algo_name, graph_dict, source, sink):
-    """Run a specific algorithm and return execution time and max flow value."""
+    """Run a specific algorithm and return (runtime_ms, max_flow_value, min_cut_capacity, min_cut_edges, error)."""
     start_time = time.perf_counter()
     
     try:
         if algo_name == "Ford-Fulkerson":
             g = dict_to_graph(graph_dict)
-            max_flow_value, _ = ford_fulkerson(g, source, sink)
+            max_flow_value, cut_edges = ford_fulkerson(g, source, sink)
+            cut_cap = sum(g.adj[u][v] for (u, v) in cut_edges)
         elif algo_name == "Dinic":
+            # Use max_flow_min_cut to also extract cut
             d = dict_to_dinic(graph_dict)
-            max_flow_value = d.max_flow(source, sink)
+            # Build original graph for accurate capacities
+            g = dict_to_graph(graph_dict)
+            max_flow_value, cut_edges = d.max_flow_min_cut(source, sink, original_graph=g)
+            cut_cap = sum(g.adj[u][v] for (u, v) in cut_edges)
         elif algo_name == "Push-Relabel":
             g = dict_to_graph(graph_dict)
-            max_flow_value = push_relabel(g, source, sink)
+            # Use wrapper returning both flow and cut
+            max_flow_value, cut_edges = push_relabel_min_cut(g, source, sink)
+            cut_cap = sum(g.adj[u][v] for (u, v) in cut_edges)
         else:
             raise ValueError(f"Unknown algorithm: {algo_name}")
         
         end_time = time.perf_counter()
         runtime_ms = (end_time - start_time) * 1000 
         
-        return runtime_ms, max_flow_value, None
+        return runtime_ms, max_flow_value, cut_cap, cut_edges, None
     
     except Exception as e:
-        return -1, -1, str(e)
+        return -1, -1, -1, [], str(e)
 
 
 def run_all_benchmarks():
@@ -104,10 +111,13 @@ def run_all_benchmarks():
             fieldnames = [
                 'algorithm', 'n', 'actual_n', 'density', 'num_layers', 
                 'nodes_per_layer', 'grid_k', 'max_capacity', 'runtime_ms', 
-                'max_flow', 'trial', 'graph_type', 'error'
+                'max_flow', 'min_cut_capacity', 'min_cut_edges', 'trial', 'graph_type', 'error'
             ]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
+            # Counters to verify Max-Flow Min-Cut theorem for this plot group
+            rows_total = 0
+            rows_mismatch = 0
             
             for ds in datasets:
                 graph = ds['graph']
@@ -120,7 +130,7 @@ def run_all_benchmarks():
                     
                     print(f"{progress} {plot_id} | {algo} | n={ds['n']} | trial={ds['trial']}...", end=' ')
                     
-                    runtime_ms, max_flow, error = run_algorithm(algo, graph, source, sink)
+                    runtime_ms, max_flow, min_cut_capacity, min_cut_edges, error = run_algorithm(algo, graph, source, sink)
                     
                     if error:
                         print(f"ERROR: {error}")
@@ -138,11 +148,22 @@ def run_all_benchmarks():
                         'max_capacity': ds['max_capacity'],
                         'runtime_ms': runtime_ms,
                         'max_flow': max_flow,
+                        'min_cut_capacity': min_cut_capacity,
+                        'min_cut_edges': min_cut_edges,
                         'trial': ds['trial'],
                         'graph_type': ds['graph_type'],
                         'error': error if error else ''
                     })
                     csvfile.flush()
+
+                    # Theorem check per row: Flow should equal MinCutCapacity
+                    rows_total += 1
+                    if not error and max_flow != min_cut_capacity:
+                        rows_mismatch += 1
+                        # Print a compact warning for visibility
+                        print(f" -> Theorem mismatch: flow={max_flow} != min_cut_capacity={min_cut_capacity}")
+            # Summary for this plot group
+            print(f"Theorem check summary for {plot_id}: total rows {rows_total}, mismatches {rows_mismatch}")
         
         print(f"✓ Saved results to {csv_filename}")
     
